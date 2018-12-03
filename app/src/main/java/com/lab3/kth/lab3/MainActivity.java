@@ -8,17 +8,21 @@ import android.hardware.SensorManager;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
+import android.widget.TextView;
 
 public class MainActivity extends AppCompatActivity {
 
     private float prevAngle = 0;
     private float acceAlpha = (float)0.85;
+    private float accelPrevTimestamp = 0;
+    private TextView degreesView;
     SensorManager manager;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        degreesView = findViewById(R.id.degreesView);
 
         manager = (SensorManager)
                 getSystemService(Context.SENSOR_SERVICE);
@@ -83,7 +87,13 @@ public class MainActivity extends AppCompatActivity {
             float tmp = 90 + angle;
             angle = 270 + tmp;
         }
-        Log.i("Main", "angle; " + angle);
+
+        float timeDiffMilli = (time - accelPrevTimestamp) / 1000000;
+        if (timeDiffMilli > 1000) {
+            accelPrevTimestamp = time;
+            degreesView.setText(Math.round(angle) + "°");
+//            Log.i("Main", "angle; " + angle);
+        }
     }
 
     private float zAngleDegrees(float x, float y, float z) {
