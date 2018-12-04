@@ -61,7 +61,12 @@ public class MainActivity extends AppCompatActivity {
 
     private boolean colorFlag;
 
+    private int counter;
+
     private Timer timer;
+    private float[] filteredGravity;
+    private float[] linearAcceleration;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -77,6 +82,9 @@ public class MainActivity extends AppCompatActivity {
         degreesView = findViewById(R.id.degreesView);
         builder = new StringBuilder();
         doWrite = false;
+        filteredGravity = new float[]{0,0,0};
+        linearAcceleration = new float[]{0,0,0};
+        counter = -1;
 
         Button start = findViewById(R.id.startWrite);
         start.setOnClickListener(event -> startWriter());
@@ -95,7 +103,7 @@ public class MainActivity extends AppCompatActivity {
                 manager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
         if (accelerometer != null) {
             manager.registerListener(
-                    sensorEventListener, accelerometer, SensorManager.SENSOR_DELAY_UI);
+                    sensorEventListener, accelerometer, SensorManager.SENSOR_DELAY_GAME);
         }
 
 
@@ -125,7 +133,7 @@ public class MainActivity extends AppCompatActivity {
                     break;
 
                 case Sensor.TYPE_LINEAR_ACCELERATION:
-                    System.out.println(" X : " + event.values[0] + " Y " + event.values[1] + " Z " + event.values[2]);
+//                    System.out.println(" X : " + event.values[0] + " Y " + event.values[1] + " Z " + event.values[2]);
             }
         }
 
@@ -144,15 +152,20 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void handleShakeChange(float x, float y, float z, long timestamp) {
-        float xFiltered = (prevxFiltered * (highPassFilter)) + (x * (1-highPassFilter));
-        float yFiltered = (prevyFiltered * (highPassFilter)) + (y * (1-highPassFilter));
-        float zFiltered = (prevzFiltered * (highPassFilter)) + (z * (1-highPassFilter));
 
-        xValues.add(xFiltered);
-        yValues.add(yFiltered);
-        zValues.add(zFiltered);
+        // filter the accelerometer data
+        filteredGravity[0] = (filteredGravity[0] * (highPassFilter)) + (x * (1-highPassFilter));
+        filteredGravity[1] = (filteredGravity[1] * (highPassFilter)) + (y * (1-highPassFilter));
+        filteredGravity[2] = (filteredGravity[2] * (highPassFilter)) + (z * (1-highPassFilter));
 
-        if(xValues.size()==50 || yValues.size() == 50 || zValues.size() == 50){
+        float linearAccelerationX = x - filteredGravity[0];
+        float linearAccelerationY = y - filteredGravity[1];
+        float linearAccelerationZ = z - filteredGravity[2];
+        xValues.add(linearAccelerationX);
+        yValues.add(linearAccelerationY);
+        zValues.add(linearAccelerationZ);
+
+        if(xValues.size()==20 || yValues.size() == 20 || zValues.size() == 20){
             xDeviation = findStandardDeviation(xValues);
             yDeviation = findStandardDeviation(yValues);
             zDeviation = findStandardDeviation(zValues);
@@ -163,22 +176,54 @@ public class MainActivity extends AppCompatActivity {
             if (!isShaking) {
                 isShaking = true;
                 shakeStartTimer = timestamp;
-            }
 
+            }
+            counter= 2;
             if (isShaking) {
+
                 long timeDiff = (timestamp - shakeStartTimer) / 1000000;
                 if (timeDiff > 1000) {
                     switchColor();
                     isShaking = false;
-                    xValues.clear();
-                    yValues.clear();
-                    zValues.clear();
+                    removeTenIndexs(xValues);
+                    removeTenIndexs(yValues);
+                    removeTenIndexs(zValues);
+
                 }
             }
         }
         else{
+            if(counter > 0 ){
+                counter--;
+
+            }
+            if(counter== 0){
+                removeTenIndexs(xValues);
+                removeTenIndexs(yValues);
+                removeTenIndexs(zValues);
+                isShaking=false;
+                counter--;
+            }
+
+
+
 
         }
+    }
+
+    private void removeTenIndexs(ArrayList<Float> values) {
+
+        for(int i = 0 ; i < 25 ; i++){
+            if(i >= values.size()){
+               break;
+            }
+            values.remove(i);
+        }
+       // Iterable iterable = (Iterable) values.iterator();
+       // int miniCounter = 0;
+
+
+
     }
 
     private void switchColor() {
@@ -257,7 +302,7 @@ public class MainActivity extends AppCompatActivity {
         Log.i("Mean","Mean : " + average);
         xValues.remove(0);
 
-        if((average + THRESHOLD) < standDev){
+        if((average + 1.3 ) < standDev){
             System.out.println("Performing shift " + average + " " + standDev);
             return true;
         }
