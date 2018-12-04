@@ -160,6 +160,7 @@ public class MainActivity extends AppCompatActivity {
 
         if(xDeviation || yDeviation || zDeviation){
 //            degreesView.setTextColor(getResources().getColor(R.color.red,null));
+            Log.i("Flags", "is deviation");
             if (!isShaking) {
                 isShaking = true;
                 shakeStartTimer = timestamp;
@@ -167,18 +168,34 @@ public class MainActivity extends AppCompatActivity {
 
             if (isShaking) {
                 long timeDiff = (timestamp - shakeStartTimer) / 1000000;
-                if (timeDiff > 1000) {
+                if (timeDiff > 969) {
                     switchColor();
                     isShaking = false;
                     xValues.clear();
                     yValues.clear();
                     zValues.clear();
+                    xDeviation = false;
+                    yDeviation = false;
+                    zDeviation = false;
+                    Log.i("Timestamp", "Timediff: " + timeDiff);
                 }
             }
         }
         else{
+            if (isShaking) {
+                xValues.clear();
+                yValues.clear();
+                zValues.clear();
+                xDeviation = false;
+                yDeviation = false;
+                zDeviation = false;
+                isShaking = false;
+            }
 
         }
+        prevxFiltered = xFiltered;
+        prevyFiltered = yFiltered;
+        prevzFiltered = zFiltered;
     }
 
     private void switchColor() {
@@ -251,6 +268,8 @@ public class MainActivity extends AppCompatActivity {
           variance/= xValues.size();
          float standDev = (float) Math.sqrt(variance);
          float average = sum / xValues.size();
+         average = Math.abs(average);
+         standDev = Math.abs(standDev);
 
         Log.i("Mean","Standard Deviation : " + standDev);
          xValues.remove(0);
