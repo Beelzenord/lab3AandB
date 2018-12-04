@@ -16,6 +16,10 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 
+import java.util.ArrayList;
+import java.util.Timer;
+import java.util.TimerTask;
+
 public class MainActivity extends AppCompatActivity {
 
     private float prevAngle = 0;
@@ -26,15 +30,46 @@ public class MainActivity extends AppCompatActivity {
     private float acceAlpha = (float)0.2;
     private float accelTiltPrevTimestamp = 0;
     private int nr = 1;
+    private float prevxFiltered = 0;
+    private float prevyFiltered = 0;
+    private float prevzFiltered = 0;
+    private float acceAlpha = (float)0.85;
+    private float highPassFilter = (float) 0.12;
+    private float accelPrevTimestamp = 0;
+    private ArrayList<Float> xValues;
+    private ArrayList<Float> yValues;
+    private ArrayList<Float> zValues;
+
     private TextView degreesView;
     private StringBuilder builder;
     private boolean doWrite;
     SensorManager manager;
 
+    private TimerTask timerTask;
+
+    private final float THRESHOLD = 15;
+
+    private final long DURANTION = 1000L;
+
+    private boolean xDeviation;
+    private boolean yDeviation;
+    private boolean zDeviation;
+
+    private boolean colorFlag;
+
+    private Timer timer;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        colorFlag = false;
+
+
+        xDeviation = false;
+        xValues = new ArrayList<Float>();
+        yValues = new ArrayList<Float>();
+        zValues = new ArrayList<Float>();
         degreesView = findViewById(R.id.degreesView);
         builder = new StringBuilder();
         doWrite = false;
@@ -45,6 +80,12 @@ public class MainActivity extends AppCompatActivity {
         stop.setOnClickListener(event -> stopWriter());
         Button reset = findViewById(R.id.resetWrite);
         reset.setOnClickListener(event -> resetWriter());
+
+
+
+
+        timer = new Timer();
+
 
 
         manager = (SensorManager)
@@ -60,11 +101,13 @@ public class MainActivity extends AppCompatActivity {
         manager = (SensorManager)
                 getSystemService(Context.SENSOR_SERVICE);
         Sensor gyro =
-                manager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
+                manager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION);
         if (gyro != null) {
             manager.registerListener(
                     sensorEventListener, gyro, SensorManager.SENSOR_DELAY_GAME);
         }
+
+
     }
 
     private final SensorEventListener sensorEventListener = new SensorEventListener() {
@@ -79,6 +122,9 @@ public class MainActivity extends AppCompatActivity {
                 case Sensor.TYPE_GYROSCOPE :
 //                    handleGyroEvent(event);
                     break;
+
+                    case Sensor.TYPE_LINEAR_ACCELERATION:
+                        System.out.println(" X : " + event.values[0] + " Y " + event.values[1] + " Z "  + event.values[2]);
             }
         }
         @Override
@@ -93,6 +139,20 @@ public class MainActivity extends AppCompatActivity {
         handleTiltChange(x, y, z);
     }
 
+        float[] g = new float[3];
+        g = event.values.clone();
+        float norm_Of_g = (float) Math.sqrt(g[0] * g[0] + g[1] * g[1] + g[2] * g[2]);
+
+
+        // Normalize the accelerometer vector
+        g[0] = g[0] / norm_Of_g;
+        g[1] = g[1] / norm_Of_g;
+        g[2] = g[2] / norm_Of_g;
+
+        int inclination = (int) Math.round(Math.toDegrees(Math.acos(g[2])));
+
+
+      //  System.out.println("inclination " +inclination);
     private void handleTiltChange(float x, float y, float z) {
         x = (prevTiltX * (1-acceTiltAlpha)) + (x * acceTiltAlpha);
         y = (prevTiltY * (1-acceTiltAlpha)) + (y * acceTiltAlpha);
@@ -100,7 +160,17 @@ public class MainActivity extends AppCompatActivity {
         write(x, y, z);
         float angle = zAngleDegrees(x, y, z);
         angle = (prevAngle * (1-acceTiltAlpha)) + (angle * acceTiltAlpha);
+
+
+
+        angle = (prevAngle * (acceAlpha)) + (angle * (1-acceAlpha));
         prevAngle = angle;
+
+        float xFiltered = (prevxFiltered * (highPassFilter)) + (x * (1-highPassFilter));
+        float yFiltered = (prevxFiltered * (highPassFilter)) + (y * (1-highPassFilter));
+        float zFiltered = (prevxFiltered * (highPassFilter)) + (z * (1-highPassFilter));
+
+
         // Bottom left
         if (y < 0 && angle > 0) {
             float tmp = 90 - angle;
@@ -125,7 +195,63 @@ public class MainActivity extends AppCompatActivity {
             builder.append("| y: " + y);
             builder.append("| z: " + z);
             builder.append("\n");
+
+        xValues.add(xFiltered);
+        yValues.add(yFiltered);
+        zValues.add(zFiltered);
+
+
+        if(xValues.size()==50 || yValues.size() == 50 || zValues.size() == 50){
+            xDeviation = findStandardDeviation(xValues);
+            yDeviation = findStandardDeviation(yValues);
+            zDeviation = findStandardDeviation(zValues);
         }
+        if(xDeviation){
+
+            degreesView.setTextColor(getResources().getColor(R.color.red,null));
+        }
+        else{
+
+        }
+
+       // float timeDiffMilli = (time - accelPrevTimestamp) / 1000000;
+    //    if (timeDiffMilli > 1000) {
+            accelPrevTimestamp = time;
+            degreesView.setText(Math.round(angle) + "°");
+//            Log.i("Main", "angle; " + angle);
+     //   }*/
+    }
+
+    private boolean findStandardDeviation(ArrayList<Float> xValues) {
+          float variance = 0;
+          float sum = 0;
+
+
+          for(Float value : xValues){
+              float tmp = value;
+              sum += value;
+              tmp = tmp*tmp;
+
+              variance +=tmp;
+          }
+          variance/= xValues.size();
+         float standDev = (float) Math.sqrt(variance);
+         float average = sum / xValues.size();
+
+        Log.i("Mean","Standard Deviation : " + standDev);
+         xValues.remove(0);
+        Log.i("Mean","Mean : " + average);
+        xValues.remove(0);
+
+        if((average + THRESHOLD) < standDev){
+            System.out.println("Performing shift " + average + " " + standDev);
+            return true;
+        }
+        else{
+
+            return false;
+        }
+
     }
 
     private float zAngleDegrees(float x, float y, float z) {
