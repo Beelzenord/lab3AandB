@@ -164,20 +164,18 @@ public class MainActivity extends AppCompatActivity {
             yDeviation = findStandardDeviation(yValues);
             zDeviation = findStandardDeviation(zValues);
         }
-        if(xDeviation){
-
-            degreesView.setTextColor(getResources().getColor(R.color.red,null));
-        }
-        else{
+        if(xDeviation || yDeviation || zDeviation){
 
         }
 
-       // float timeDiffMilli = (time - accelPrevTimestamp) / 1000000;
-    //    if (timeDiffMilli > 1000) {
+
+        float timeDiffMilli = (time - accelPrevTimestamp) / 1000000;
+         if (timeDiffMilli > 1000 && (xDeviation || yDeviation || zDeviation)) {
             accelPrevTimestamp = time;
             degreesView.setText(Math.round(angle) + "°");
+             degreesView.setTextColor(getResources().getColor(R.color.red,null));
 //            Log.i("Main", "angle; " + angle);
-     //   }*/
+        }
     }
 
     private boolean findStandardDeviation(ArrayList<Float> xValues) {
