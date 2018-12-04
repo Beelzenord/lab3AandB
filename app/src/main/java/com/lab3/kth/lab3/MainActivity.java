@@ -21,19 +21,20 @@ import java.util.Timer;
 import java.util.TimerTask;
 
 public class MainActivity extends AppCompatActivity {
-
+    private final static int RED_COLOR = 1;
+    private final static int BLACK_COLOR = 2;
+    private int currentColor;
     private float prevAngle = 0;
     private float prevTiltX = 0;
     private float prevTiltY = 0;
     private float prevTiltZ = 0;
-    private float acceTiltAlpha = (float)0.2;
-    private float acceAlpha = (float)0.2;
+    private float acceTiltAlpha = (float) 0.2;
+    private float acceAlpha = (float) 0.2;
     private float accelTiltPrevTimestamp = 0;
     private int nr = 1;
     private float prevxFiltered = 0;
     private float prevyFiltered = 0;
     private float prevzFiltered = 0;
-    private float acceAlpha = (float)0.85;
     private float highPassFilter = (float) 0.12;
     private float accelPrevTimestamp = 0;
     private ArrayList<Float> xValues;
@@ -44,6 +45,9 @@ public class MainActivity extends AppCompatActivity {
     private StringBuilder builder;
     private boolean doWrite;
     SensorManager manager;
+
+    private long shakeStartTimer;
+    private boolean isShaking;
 
     private TimerTask timerTask;
 
@@ -64,8 +68,8 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         colorFlag = false;
-
-
+        isShaking = false;
+        currentColor = BLACK_COLOR;
         xDeviation = false;
         xValues = new ArrayList<Float>();
         yValues = new ArrayList<Float>();
@@ -82,10 +86,7 @@ public class MainActivity extends AppCompatActivity {
         reset.setOnClickListener(event -> resetWriter());
 
 
-
-
         timer = new Timer();
-
 
 
         manager = (SensorManager)
@@ -113,20 +114,21 @@ public class MainActivity extends AppCompatActivity {
     private final SensorEventListener sensorEventListener = new SensorEventListener() {
         @Override
         public void onSensorChanged(SensorEvent event) {
-            switch(event.sensor.getType()) {
-                case Sensor.TYPE_ACCELEROMETER :
+            switch (event.sensor.getType()) {
+                case Sensor.TYPE_ACCELEROMETER:
                     handleAccelerationEvent(event);
 
                     break;
 
-                case Sensor.TYPE_GYROSCOPE :
+                case Sensor.TYPE_GYROSCOPE:
 //                    handleGyroEvent(event);
                     break;
 
-                    case Sensor.TYPE_LINEAR_ACCELERATION:
-                        System.out.println(" X : " + event.values[0] + " Y " + event.values[1] + " Z "  + event.values[2]);
+                case Sensor.TYPE_LINEAR_ACCELERATION:
+                    System.out.println(" X : " + event.values[0] + " Y " + event.values[1] + " Z " + event.values[2]);
             }
         }
+
         @Override
         public void onAccuracyChanged(Sensor sensor, int accuracy) {
         }
@@ -137,21 +139,59 @@ public class MainActivity extends AppCompatActivity {
         float y = event.values[1];
         float z = event.values[2];
         handleTiltChange(x, y, z);
+        handleShakeChange(x, y, z, event.timestamp);
+
     }
 
-        float[] g = new float[3];
-        g = event.values.clone();
-        float norm_Of_g = (float) Math.sqrt(g[0] * g[0] + g[1] * g[1] + g[2] * g[2]);
+    private void handleShakeChange(float x, float y, float z, long timestamp) {
+        float xFiltered = (prevxFiltered * (highPassFilter)) + (x * (1-highPassFilter));
+        float yFiltered = (prevyFiltered * (highPassFilter)) + (y * (1-highPassFilter));
+        float zFiltered = (prevzFiltered * (highPassFilter)) + (z * (1-highPassFilter));
 
+        xValues.add(xFiltered);
+        yValues.add(yFiltered);
+        zValues.add(zFiltered);
 
-        // Normalize the accelerometer vector
-        g[0] = g[0] / norm_Of_g;
-        g[1] = g[1] / norm_Of_g;
-        g[2] = g[2] / norm_Of_g;
+        if(xValues.size()==50 || yValues.size() == 50 || zValues.size() == 50){
+            xDeviation = findStandardDeviation(xValues);
+            yDeviation = findStandardDeviation(yValues);
+            zDeviation = findStandardDeviation(zValues);
+        }
 
-        int inclination = (int) Math.round(Math.toDegrees(Math.acos(g[2])));
+        if(xDeviation || yDeviation || zDeviation){
+//            degreesView.setTextColor(getResources().getColor(R.color.red,null));
+            if (!isShaking) {
+                isShaking = true;
+                shakeStartTimer = timestamp;
+            }
 
+            if (isShaking) {
+                long timeDiff = (timestamp - shakeStartTimer) / 1000000;
+                if (timeDiff > 1000) {
+                    switchColor();
+                    isShaking = false;
+                    xValues.clear();
+                    yValues.clear();
+                    zValues.clear();
+                }
+            }
+        }
+        else{
 
+        }
+    }
+
+    private void switchColor() {
+        if (currentColor == BLACK_COLOR) {
+            degreesView.setTextColor(getResources().getColor(R.color.red, null));
+            currentColor = RED_COLOR;
+        }
+        else {
+            degreesView.setTextColor(getResources().getColor(R.color.black, null));
+            currentColor = BLACK_COLOR;
+        }
+
+    }
       //  System.out.println("inclination " +inclination);
     private void handleTiltChange(float x, float y, float z) {
         x = (prevTiltX * (1-acceTiltAlpha)) + (x * acceTiltAlpha);
@@ -165,10 +205,6 @@ public class MainActivity extends AppCompatActivity {
 
         angle = (prevAngle * (acceAlpha)) + (angle * (1-acceAlpha));
         prevAngle = angle;
-
-        float xFiltered = (prevxFiltered * (highPassFilter)) + (x * (1-highPassFilter));
-        float yFiltered = (prevxFiltered * (highPassFilter)) + (y * (1-highPassFilter));
-        float zFiltered = (prevxFiltered * (highPassFilter)) + (z * (1-highPassFilter));
 
 
         // Bottom left
@@ -195,31 +231,9 @@ public class MainActivity extends AppCompatActivity {
             builder.append("| y: " + y);
             builder.append("| z: " + z);
             builder.append("\n");
-
-        xValues.add(xFiltered);
-        yValues.add(yFiltered);
-        zValues.add(zFiltered);
-
-
-        if(xValues.size()==50 || yValues.size() == 50 || zValues.size() == 50){
-            xDeviation = findStandardDeviation(xValues);
-            yDeviation = findStandardDeviation(yValues);
-            zDeviation = findStandardDeviation(zValues);
         }
-        if(xDeviation){
-
-            degreesView.setTextColor(getResources().getColor(R.color.red,null));
-        }
-        else{
-
-        }
-
-       // float timeDiffMilli = (time - accelPrevTimestamp) / 1000000;
-    //    if (timeDiffMilli > 1000) {
-            accelPrevTimestamp = time;
-            degreesView.setText(Math.round(angle) + "°");
-//            Log.i("Main", "angle; " + angle);
-     //   }*/
+//            accelPrevTimestamp = time;
+//            degreesView.setText(Math.round(angle) + "°");
     }
 
     private boolean findStandardDeviation(ArrayList<Float> xValues) {
