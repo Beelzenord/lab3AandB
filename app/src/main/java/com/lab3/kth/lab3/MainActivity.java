@@ -67,6 +67,10 @@ public class MainActivity extends AppCompatActivity {
     private float[] filteredGravity;
     private float[] linearAcceleration;
 
+    private float[] mGeomagnetic;
+
+    float roll;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -84,6 +88,7 @@ public class MainActivity extends AppCompatActivity {
         doWrite = false;
         filteredGravity = new float[]{0,0,0};
         linearAcceleration = new float[]{0,0,0};
+        mGeomagnetic = new float[]{0,0,0};
         counter = -1;
 
         Button start = findViewById(R.id.startWrite);
@@ -116,12 +121,26 @@ public class MainActivity extends AppCompatActivity {
                     sensorEventListener, gyro, SensorManager.SENSOR_DELAY_GAME);
         }
 
+        manager = (SensorManager)
+                getSystemService(Context.SENSOR_SERVICE);
+        Sensor magnet =
+                manager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
+        if(magnet!=null){
+            manager.registerListener(
+                    sensorEventListener, magnet, SensorManager.SENSOR_DELAY_GAME);
+        }
+
 
     }
 
     private final SensorEventListener sensorEventListener = new SensorEventListener() {
+      //  float[] mGravity = new float[]{0,0,0};
+
+
         @Override
         public void onSensorChanged(SensorEvent event) {
+
+
             switch (event.sensor.getType()) {
                 case Sensor.TYPE_ACCELEROMETER:
                     handleAccelerationEvent(event);
@@ -131,11 +150,20 @@ public class MainActivity extends AppCompatActivity {
                 case Sensor.TYPE_GYROSCOPE:
 //                    handleGyroEvent(event);
                     break;
+                case Sensor.TYPE_MAGNETIC_FIELD:
+                    mGeomagnetic[0] = event.values[0];
+                    mGeomagnetic[1] = event.values[1];
+                    mGeomagnetic[2] = event.values[2];
+                    break;
 
-                case Sensor.TYPE_LINEAR_ACCELERATION:
+
+
 //                    System.out.println(" X : " + event.values[0] + " Y " + event.values[1] + " Z " + event.values[2]);
             }
+
+
         }
+
 
         @Override
         public void onAccuracyChanged(Sensor sensor, int accuracy) {
@@ -146,8 +174,17 @@ public class MainActivity extends AppCompatActivity {
         float x = event.values[0];
         float y = event.values[1];
         float z = event.values[2];
+
+
+
         handleTiltChange(x, y, z);
         handleShakeChange(x, y, z, event.timestamp);
+        handleOrientation(x,y,z);
+    }
+
+    private void handleOrientation(float x, float y, float z) {
+
+
 
     }
 
@@ -238,6 +275,27 @@ public class MainActivity extends AppCompatActivity {
         x = (prevTiltX * (1-acceTiltAlpha)) + (x * acceTiltAlpha);
         y = (prevTiltY * (1-acceTiltAlpha)) + (y * acceTiltAlpha);
         z = (prevTiltZ * (1-acceTiltAlpha)) + (z * acceTiltAlpha);
+
+
+
+        float R[] = new float[9];
+        float I[] = new float[9];
+        float[] accelerometer = new float[]{x,y,z};
+
+        if(SensorManager.getRotationMatrix(R,I,accelerometer,mGeomagnetic)){
+            float orientation[] = new float[3];
+            SensorManager.getOrientation(R, orientation);
+            float azimut = orientation[0];
+            float pitch = orientation[1];
+            float roll = orientation[2];
+            // roll = orientation[2] * -57;
+
+            Log.i("degrees ", "AZIMUT " + Math.toDegrees(azimut) + " " + Math.toDegrees(pitch) + " "+ Math.toDegrees(roll));
+
+        }
+
+
+
         write(x, y, z);
         float angle = zAngleDegrees(x, y, z);
         angle = (prevAngle * (1-acceTiltAlpha)) + (angle * acceTiltAlpha);
@@ -312,6 +370,13 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private float zAngleDegrees(float x, float y, float z) {
+       // System.out.println("X: " +  x  + " Y: " + y + " Z: " + z);
+
+
+        float Roll = (float)(Math.atan2((double)y, (double)z) * 180/(float)Math.PI);
+        float Pitch = (float)Math.atan2(-x, sqrt(y*y + z*z)) * 180/(float)Math.PI;
+
+        Log.i("ROLL","ROLL  " + Roll + " Pitch " + Pitch);
         float u1 = pow(x, 2) + pow(y, 2);
         float u2 = sqrt(u1);
         float u3 = z / u2;
