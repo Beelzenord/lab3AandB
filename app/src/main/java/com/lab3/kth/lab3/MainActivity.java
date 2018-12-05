@@ -28,8 +28,11 @@ public class MainActivity extends AppCompatActivity {
     private float prevTiltX = 0;
     private float prevTiltY = 0;
     private float prevTiltZ = 0;
-    private float acceTiltAlpha = (float) 0.2;
-    private float acceAlpha = (float) 0.2;
+    private float prevMagnX = 0;
+    private float prevMagnY = 0;
+    private float prevMagnZ = 0;
+    private float acceTiltAlpha = (float) 0.7;
+//    private float acceAlpha = (float) 0.2;
     private float accelTiltPrevTimestamp = 0;
     private int nr = 1;
     private float prevxFiltered = 0;
@@ -51,7 +54,8 @@ public class MainActivity extends AppCompatActivity {
 
     private TimerTask timerTask;
 
-    private final float THRESHOLD = 15;
+    private final float THRESHOLD = (float)1.3;
+    private final int INDEXS_TO_CLEAR = 25;
 
     private final long DURANTION = 1000L;
 
@@ -106,6 +110,13 @@ public class MainActivity extends AppCompatActivity {
                     sensorEventListener, accelerometer, SensorManager.SENSOR_DELAY_GAME);
         }
 
+        Sensor magnetometer =
+                manager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
+        if (magnetometer != null) {
+            manager.registerListener(
+                    sensorEventListener, magnetometer, SensorManager.SENSOR_DELAY_GAME);
+        }
+
 
         manager = (SensorManager)
                 getSystemService(Context.SENSOR_SERVICE);
@@ -127,6 +138,9 @@ public class MainActivity extends AppCompatActivity {
                     handleAccelerationEvent(event);
 
                     break;
+                case Sensor.TYPE_MAGNETIC_FIELD:
+                    handleMagneticField(event);
+                    break;
 
                 case Sensor.TYPE_GYROSCOPE:
 //                    handleGyroEvent(event);
@@ -142,13 +156,36 @@ public class MainActivity extends AppCompatActivity {
         }
     };
 
+    private void handleMagneticField(SensorEvent event) {
+        float x = event.values[0];
+        float y = event.values[1];
+        float z = event.values[2];
+        prevMagnX = (prevMagnX * acceTiltAlpha + ((1-acceTiltAlpha) * x));
+        prevMagnY = (prevMagnY * acceTiltAlpha + ((1-acceTiltAlpha) * y));
+        prevMagnZ = (prevMagnY * acceTiltAlpha + ((1-acceTiltAlpha) * z));
+
+
+/*
+        float timeD = (accelPrevTimestamp - accelTiltPrevTimestamp) / 1000000;
+        float[] cross = crossProduct(prevTiltX, prevTiltY, prevTiltZ, x, y, z);
+        cross = crossProduct(cross[0], cross[1], cross[2], prevTiltX, prevTiltY, prevTiltZ);
+
+        if (timeD > 1000) {
+            Log.i("Timestamp", "ACCEL: " + absolute(prevTiltX, prevTiltY, prevTiltZ));
+            Log.i("Timestamp", "MAGNE: " + absolute(x, y, z));
+            Log.i("Timestamp", "CROSS: " + absolute(cross[0], cross[1], cross[2]));
+            accelTiltPrevTimestamp = accelPrevTimestamp;
+        }
+*/
+    }
+
     private void handleAccelerationEvent(SensorEvent event) {
         float x = event.values[0];
         float y = event.values[1];
         float z = event.values[2];
+        accelPrevTimestamp = event.timestamp;
         handleTiltChange(x, y, z);
         handleShakeChange(x, y, z, event.timestamp);
-
     }
 
     private void handleShakeChange(float x, float y, float z, long timestamp) {
@@ -186,9 +223,9 @@ public class MainActivity extends AppCompatActivity {
                 if (timeDiff > 969) {
                     switchColor();
                     isShaking = false;
-                    removeTenIndexs(xValues);
-                    removeTenIndexs(yValues);
-                    removeTenIndexs(zValues);
+                    removeIndexs(xValues, INDEXS_TO_CLEAR);
+                    removeIndexs(yValues, INDEXS_TO_CLEAR);
+                    removeIndexs(zValues, INDEXS_TO_CLEAR);
 
                 }
             }
@@ -199,9 +236,9 @@ public class MainActivity extends AppCompatActivity {
 
             }
             if(counter== 0){
-                removeTenIndexs(xValues);
-                removeTenIndexs(yValues);
-                removeTenIndexs(zValues);
+                removeIndexs(xValues, INDEXS_TO_CLEAR);
+                removeIndexs(yValues, INDEXS_TO_CLEAR);
+                removeIndexs(zValues, INDEXS_TO_CLEAR);
                 isShaking=false;
                 counter--;
             }
@@ -212,9 +249,9 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void removeTenIndexs(ArrayList<Float> values) {
+    private void removeIndexs(ArrayList<Float> values, int indexs) {
 
-        for(int i = 0 ; i < 25 ; i++){
+        for(int i = 0 ; i < indexs ; i++){
             if(i >= values.size()){
                break;
             }
@@ -235,35 +272,92 @@ public class MainActivity extends AppCompatActivity {
     }
       //  System.out.println("inclination " +inclination);
     private void handleTiltChange(float x, float y, float z) {
-        x = (prevTiltX * (1-acceTiltAlpha)) + (x * acceTiltAlpha);
-        y = (prevTiltY * (1-acceTiltAlpha)) + (y * acceTiltAlpha);
-        z = (prevTiltZ * (1-acceTiltAlpha)) + (z * acceTiltAlpha);
-        write(x, y, z);
+        x = (prevTiltX * (acceTiltAlpha)) + (x * (1 - acceTiltAlpha));
+        y = (prevTiltY * (acceTiltAlpha)) + (y * (1 - acceTiltAlpha));
+        z = (prevTiltZ * (acceTiltAlpha)) + (z * (1 - acceTiltAlpha));
         float angle = zAngleDegrees(x, y, z);
-        angle = (prevAngle * (1-acceTiltAlpha)) + (angle * acceTiltAlpha);
 
-
-
-        angle = (prevAngle * (acceAlpha)) + (angle * (1-acceAlpha));
+        angle = (prevAngle * (acceTiltAlpha)) + (angle * (1 - acceTiltAlpha));
         prevAngle = angle;
+        prevTiltX = x;
+        prevTiltY = y;
+        prevTiltZ = z;
 
+        if (x >= 0 && y >= 0 && z >= 0) { //angle +
+
+        }
+        else if (x >= 0 && y >= 0 && z <= 0) { //angle -
+            angle = 360 + angle;
+        }
+        else if (x <= 0 && y >= 0 && z >= 0) { //angle +
+            angle = 90 + angle;
+        }
+        else if (x <= 0 && y >= 0 && z <= 0) { //angle -
+            angle = 180 + (Math.abs(angle));
+        }
+        else if (x >= 0 && y <= 0 && z >= 0) { //angle +
+
+        }
+        else if (x >= 0 && y <= 0 && z <= 0) { //angle -
+            angle = 360 + angle;
+        }
+        else if (x <= 0 && y <= 0 && z >= 0) { //angle +
+            angle = 180 - angle;
+        }
+        else if (x <= 0 && y <= 0 && z <= 0) { //angle -
+            angle = 180 + Math.abs(angle);
+        }
+        else if (x <= 0 && y >= 0 && z >= 0)
 
         // Bottom left
-        if (y < 0 && angle > 0) {
+        if (y <= 0 && x <= 0 && angle >= 0) {
             float tmp = 90 - angle;
             angle = 90 + tmp;
         }
-        // Bottom right
-        else if (y < 0 && angle < 0) {
+        // Bottom Right
+        else if (y <= 0 && x <= 0&& angle <= 0) {
             float tmp = angle * -1;
             angle = 180 + tmp;
         }
-        // Top left
-        else if (y > 0 && angle < 0) {
+        // Top Right
+        else if (y >= 0 && x >= 0 && angle <= 0) {
             float tmp = 90 + angle;
             angle = 270 + tmp;
         }
-        degreesView.setText(Math.round(angle) + "°");
+
+
+
+        int roundedAngle = Math.round(angle);
+        if (roundedAngle == 360)
+            roundedAngle = 0;
+        float timeD = (accelPrevTimestamp - accelTiltPrevTimestamp) / 1000000;
+        if (timeD > 1000) {
+            Log.i("Timestamp", "angle: " + prevAngle);
+            Log.i("Timestamp", "AX: " + x);
+            Log.i("Timestamp", "AY: " + y);
+            Log.i("Timestamp", "AZ: " + z);
+            Log.i("Timestamp", "MX: " + prevMagnX);
+            Log.i("Timestamp", "MY: " + prevMagnY);
+            Log.i("Timestamp", "MZ: " + prevMagnZ);
+            Log.i("Timestamp", "MA: " + absolute(prevMagnX, prevMagnY, prevMagnZ));
+            accelTiltPrevTimestamp = accelPrevTimestamp;
+        }
+        if (roundedAngle == 892) {
+            Log.i("Timestamp", "Rounded: 89");
+            Log.i("Timestamp", "angle " + prevAngle);
+            Log.i("Timestamp", "Y: " + y);
+        }
+        if (roundedAngle == 902) {
+            Log.i("Timestamp", "Rounded: 90");
+            Log.i("Timestamp", "angle " + prevAngle);
+            Log.i("Timestamp", "Y: " + y);
+        }
+        if (roundedAngle == 912) {
+            Log.i("Timestamp", "Rounded: 91");
+            Log.i("Timestamp", "angle " + prevAngle);
+            Log.i("Timestamp", "Y: " + y);
+        }
+        degreesView.setText(roundedAngle + "°");
     }
 
     public void write(float x, float y, float z) {
@@ -300,7 +394,7 @@ public class MainActivity extends AppCompatActivity {
         Log.i("Mean","Mean : " + average);
         xValues.remove(0);
 
-        if((average + 1.3 ) < standDev){
+        if((average + THRESHOLD ) < standDev){
             System.out.println("Performing shift " + average + " " + standDev);
             return true;
         }
@@ -352,9 +446,17 @@ public class MainActivity extends AppCompatActivity {
         return (float)Math.pow(val, exp);
     }
 
+    private float[] crossProduct(float x1, float y1, float z1, float x2, float y2, float z2) {
+        float[] tmp = new float[3];
+        tmp[0] = (y1*z2 - y2*z1);
+        tmp[1] = (x2*z1 - x1*z2);
+        tmp[2] = (x1*y2 - x2*y1);
+        return tmp;
+    }
 
-
-
+    private float absolute(float x, float y, float z) {
+        return (float)Math.sqrt((Math.pow(x, 2) + Math.pow(y, 2) + Math.pow(z, 2)));
+    }
 
 
 
