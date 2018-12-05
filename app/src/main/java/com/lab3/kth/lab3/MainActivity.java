@@ -292,10 +292,6 @@ public class MainActivity extends AppCompatActivity {
         x = (prevTiltX * (acceTiltAlpha)) + (x * (1 - acceTiltAlpha));
         y = (prevTiltY * (acceTiltAlpha)) + (y * (1 - acceTiltAlpha));
         z = (prevTiltZ * (acceTiltAlpha)) + (z * (1 - acceTiltAlpha));
-        x = (prevTiltX * (1-acceTiltAlpha)) + (x * acceTiltAlpha);
-        y = (prevTiltY * (1-acceTiltAlpha)) + (y * acceTiltAlpha);
-        z = (prevTiltZ * (1-acceTiltAlpha)) + (z * acceTiltAlpha);
-
 
 
         float R[] = new float[9];
@@ -310,9 +306,11 @@ public class MainActivity extends AppCompatActivity {
             float roll = orientation[2];
             // roll = orientation[2] * -57;
 
-            Log.i("degrees ", "AZIMUT " + Math.toDegrees(azimut) + " " + Math.toDegrees(pitch) + " "+ Math.toDegrees(roll));
+            Log.i("degrees ", "AZIMUT " + Math.round(Math.toDegrees(azimut)) + " PITCH " + Math.round(Math.toDegrees(pitch)) + " ROLL "+ Math.round(Math.toDegrees(roll)));
 
         }
+
+        Log.i("xyz", "x: " + x + " y: " + y + " z: " + z);
 
 
 
