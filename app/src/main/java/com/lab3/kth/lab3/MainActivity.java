@@ -1,6 +1,5 @@
 package com.lab3.kth.lab3;
 
-import android.app.Activity;
 import android.content.Context;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
@@ -9,16 +8,11 @@ import android.hardware.SensorManager;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
-import android.widget.Button;
 import android.widget.TextView;
 
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
 
 import java.util.ArrayList;
-import java.util.Timer;
-import java.util.TimerTask;
+
 
 public class MainActivity extends AppCompatActivity {
     private final static int RED_COLOR = 1;
@@ -32,12 +26,7 @@ public class MainActivity extends AppCompatActivity {
     private float prevMagnY = 0;
     private float prevMagnZ = 0;
     private float acceTiltAlpha = (float) 0.7;
-//    private float acceAlpha = (float) 0.2;
     private float accelTiltPrevTimestamp = 0;
-    private int nr = 1;
-    private float prevxFiltered = 0;
-    private float prevyFiltered = 0;
-    private float prevzFiltered = 0;
     private float highPassFilter = (float) 0.12;
     private float accelPrevTimestamp = 0;
     private ArrayList<Float> xValues;
@@ -45,14 +34,10 @@ public class MainActivity extends AppCompatActivity {
     private ArrayList<Float> zValues;
 
     private TextView degreesView;
-    private StringBuilder builder;
-    private boolean doWrite;
     SensorManager manager;
 
     private long shakeStartTimer;
     private boolean isShaking;
-
-    private TimerTask timerTask;
 
     private final float THRESHOLD = (float)1.3;
     private final int INDEXS_TO_CLEAR = 25;
@@ -62,25 +47,19 @@ public class MainActivity extends AppCompatActivity {
     private boolean xDeviation;
     private boolean yDeviation;
     private boolean zDeviation;
-
-    private boolean colorFlag;
-
     private int counter;
 
-    private Timer timer;
     private float[] filteredGravity;
     private float[] linearAcceleration;
 
     private float[] mGeomagnetic;
 
-    float roll;
 
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        colorFlag = false;
         isShaking = false;
         currentColor = BLACK_COLOR;
         xDeviation = false;
@@ -88,22 +67,10 @@ public class MainActivity extends AppCompatActivity {
         yValues = new ArrayList<Float>();
         zValues = new ArrayList<Float>();
         degreesView = findViewById(R.id.degreesView);
-        builder = new StringBuilder();
-        doWrite = false;
         filteredGravity = new float[]{0,0,0};
         linearAcceleration = new float[]{0,0,0};
         mGeomagnetic = new float[]{0,0,0};
         counter = -1;
-
-        Button start = findViewById(R.id.startWrite);
-        start.setOnClickListener(event -> startWriter());
-        Button stop = findViewById(R.id.stopWrite);
-        stop.setOnClickListener(event -> stopWriter());
-        Button reset = findViewById(R.id.resetWrite);
-        reset.setOnClickListener(event -> resetWriter());
-
-
-        timer = new Timer();
 
 
         manager = (SensorManager)
@@ -149,13 +116,9 @@ public class MainActivity extends AppCompatActivity {
                     mGeomagnetic[2] = event.values[2];
                     handleMagneticField(event);
                     break;
-
                 case Sensor.TYPE_GYROSCOPE:
 //                    handleGyroEvent(event);
                     break;
-
-
-
                 case Sensor.TYPE_LINEAR_ACCELERATION:
 //                    System.out.println(" X : " + event.values[0] + " Y " + event.values[1] + " Z " + event.values[2]);
             }
@@ -173,20 +136,6 @@ public class MainActivity extends AppCompatActivity {
         prevMagnX = (prevMagnX * acceTiltAlpha + ((1-acceTiltAlpha) * x));
         prevMagnY = (prevMagnY * acceTiltAlpha + ((1-acceTiltAlpha) * y));
         prevMagnZ = (prevMagnY * acceTiltAlpha + ((1-acceTiltAlpha) * z));
-
-
-/*
-        float timeD = (accelPrevTimestamp - accelTiltPrevTimestamp) / 1000000;
-        float[] cross = crossProduct(prevTiltX, prevTiltY, prevTiltZ, x, y, z);
-        cross = crossProduct(cross[0], cross[1], cross[2], prevTiltX, prevTiltY, prevTiltZ);
-
-        if (timeD > 1000) {
-            Log.i("Timestamp", "ACCEL: " + absolute(prevTiltX, prevTiltY, prevTiltZ));
-            Log.i("Timestamp", "MAGNE: " + absolute(x, y, z));
-            Log.i("Timestamp", "CROSS: " + absolute(cross[0], cross[1], cross[2]));
-            accelTiltPrevTimestamp = accelPrevTimestamp;
-        }
-*/
     }
 
     private void handleAccelerationEvent(SensorEvent event) {
@@ -196,13 +145,6 @@ public class MainActivity extends AppCompatActivity {
         accelPrevTimestamp = event.timestamp;
         handleTiltChange(x, y, z);
         handleShakeChange(x, y, z, event.timestamp);
-        handleOrientation(x,y,z);
-    }
-
-    private void handleOrientation(float x, float y, float z) {
-
-
-
     }
 
     private void handleShakeChange(float x, float y, float z, long timestamp) {
@@ -250,7 +192,6 @@ public class MainActivity extends AppCompatActivity {
         else{
             if(counter > 0 ){
                 counter--;
-
             }
             if(counter== 0){
                 removeIndexs(xValues, INDEXS_TO_CLEAR);
@@ -259,10 +200,6 @@ public class MainActivity extends AppCompatActivity {
                 isShaking=false;
                 counter--;
             }
-
-
-
-
         }
     }
 
@@ -287,34 +224,11 @@ public class MainActivity extends AppCompatActivity {
         }
 
     }
-      //  System.out.println("inclination " +inclination);
+
     private void handleTiltChange(float x, float y, float z) {
         x = (prevTiltX * (acceTiltAlpha)) + (x * (1 - acceTiltAlpha));
         y = (prevTiltY * (acceTiltAlpha)) + (y * (1 - acceTiltAlpha));
         z = (prevTiltZ * (acceTiltAlpha)) + (z * (1 - acceTiltAlpha));
-
-
-        float R[] = new float[9];
-        float I[] = new float[9];
-        float[] accelerometer = new float[]{x,y,z};
-
-        if(SensorManager.getRotationMatrix(R,I,accelerometer,mGeomagnetic)){
-            float orientation[] = new float[3];
-            SensorManager.getOrientation(R, orientation);
-            float azimut = orientation[0];
-            float pitch = orientation[1];
-            float roll = orientation[2];
-            // roll = orientation[2] * -57;
-
-            Log.i("degrees ", "AZIMUT " + Math.round(Math.toDegrees(azimut)) + " PITCH " + Math.round(Math.toDegrees(pitch)) + " ROLL "+ Math.round(Math.toDegrees(roll)));
-
-        }
-
-        Log.i("xyz", "x: " + x + " y: " + y + " z: " + z);
-
-
-
-        write(x, y, z);
         float angle = zAngleDegrees(x, y, z);
 
         angle = (prevAngle * (acceTiltAlpha)) + (angle * (1 - acceTiltAlpha));
@@ -322,94 +236,39 @@ public class MainActivity extends AppCompatActivity {
         prevTiltX = x;
         prevTiltY = y;
         prevTiltZ = z;
-
-        if (x >= 0 && y >= 0 && z >= 0) { //angle +
-
-        }
-        else if (x >= 0 && y >= 0 && z <= 0) { //angle -
-            angle = 360 + angle;
-        }
-        else if (x <= 0 && y >= 0 && z >= 0) { //angle +
-            angle = 90 + angle;
-        }
-        else if (x <= 0 && y >= 0 && z <= 0) { //angle -
-            angle = 180 + (Math.abs(angle));
-        }
-        else if (x >= 0 && y <= 0 && z >= 0) { //angle +
-
-        }
-        else if (x >= 0 && y <= 0 && z <= 0) { //angle -
-            angle = 360 + angle;
-        }
-        else if (x <= 0 && y <= 0 && z >= 0) { //angle +
-            angle = 180 - angle;
-        }
-        else if (x <= 0 && y <= 0 && z <= 0) { //angle -
-            angle = 180 + Math.abs(angle);
-        }
-        else if (x <= 0 && y >= 0 && z >= 0)
-
-        // Bottom left
-        if (y <= 0 && x <= 0 && angle >= 0) {
+                // Bottom left
+        if (y <= 0 && x <= 0 && angle >= 0 ||
+                y <= 0 && x >= 0 && angle >= 0 ) {
             float tmp = 90 - angle;
             angle = 90 + tmp;
         }
         // Bottom Right
-        else if (y <= 0 && x <= 0&& angle <= 0) {
+        else if (y <= 0 && x <= 0&& angle <= 0  ||
+                y <= 0 && x >= 0&& angle <= 0) {
             float tmp = angle * -1;
             angle = 180 + tmp;
         }
         // Top Right
-        else if (y >= 0 && x >= 0 && angle <= 0) {
+        else if (y >= 0 && x >= 0 && angle <= 0 ||
+                y >= 0 && x <= 0 && angle <= 0) {
             float tmp = 90 + angle;
             angle = 270 + tmp;
         }
-
-
-
         int roundedAngle = Math.round(angle);
         if (roundedAngle == 360)
             roundedAngle = 0;
+//        WindowManager windowManager = (WindowManager)getSystemService(Context.WINDOW_SERVICE);
+//        int rotation = windowManager.getDefaultDisplay().getRotation();
         float timeD = (accelPrevTimestamp - accelTiltPrevTimestamp) / 1000000;
-        if (timeD > 1000) {
-            Log.i("Timestamp", "angle: " + prevAngle);
-            Log.i("Timestamp", "AX: " + x);
-            Log.i("Timestamp", "AY: " + y);
-            Log.i("Timestamp", "AZ: " + z);
-            Log.i("Timestamp", "MX: " + prevMagnX);
-            Log.i("Timestamp", "MY: " + prevMagnY);
-            Log.i("Timestamp", "MZ: " + prevMagnZ);
-            Log.i("Timestamp", "MA: " + absolute(prevMagnX, prevMagnY, prevMagnZ));
+        if (timeD > 500) {
+            Log.i("Values", "x; " + x + " y; " + y + " z; " + z + " angle; " + prevAngle);
+//            Log.i("Values", "D: " + d);
+//            Log.i("Values", "ROtation: " + rotation);
             accelTiltPrevTimestamp = accelPrevTimestamp;
-        }
-        if (roundedAngle == 892) {
-            Log.i("Timestamp", "Rounded: 89");
-            Log.i("Timestamp", "angle " + prevAngle);
-            Log.i("Timestamp", "Y: " + y);
-        }
-        if (roundedAngle == 902) {
-            Log.i("Timestamp", "Rounded: 90");
-            Log.i("Timestamp", "angle " + prevAngle);
-            Log.i("Timestamp", "Y: " + y);
-        }
-        if (roundedAngle == 912) {
-            Log.i("Timestamp", "Rounded: 91");
-            Log.i("Timestamp", "angle " + prevAngle);
-            Log.i("Timestamp", "Y: " + y);
         }
         degreesView.setText(roundedAngle + "°");
     }
 
-    public void write(float x, float y, float z) {
-        if (doWrite) {
-            builder.append("x: " + x);
-            builder.append("| y: " + y);
-            builder.append("| z: " + z);
-            builder.append("\n");
-        }
-//            accelPrevTimestamp = time;
-//            degreesView.setText(Math.round(angle) + "°");
-    }
 
     private boolean findStandardDeviation(ArrayList<Float> xValues) {
           float variance = 0;
@@ -445,36 +304,22 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
+    private float xoryAngleDegrees(float top, float bot1, float bot2) {
+        float bot = pow(bot1, 2) + pow(bot2, 2);
+        bot = (float)Math.sqrt(bot);
+        float res = top / bot;
+        res = arctan(res);
+        return (float)Math.round(Math.toDegrees(res));
+    }
+
     private float zAngleDegrees(float x, float y, float z) {
-       // System.out.println("X: " +  x  + " Y: " + y + " Z: " + z);
 
-
-        float Roll = (float)(Math.atan2((double)y, (double)z) * 180/(float)Math.PI);
-        float Pitch = (float)Math.atan2(-x, sqrt(y*y + z*z)) * 180/(float)Math.PI;
-
-        Log.i("ROLL","ROLL  " + Roll + " Pitch " + Pitch);
         float u1 = pow(x, 2) + pow(y, 2);
         float u2 = sqrt(u1);
         float u3 = z / u2;
         float res1 = arctan(u3);
         float res2 = (float)Math.toDegrees(res1);
         return res2;
-    }
-
-    public void startWriter() {
-        builder = new StringBuilder();
-        doWrite = true;
-    }
-
-    public void stopWriter() {
-        doWrite = false;
-        Log.i("Data", builder.toString());
-        Write write = new Write(this, builder.toString(), nr + "data.txt");
-        write.run();
-    }
-
-    public void resetWriter() {
-        builder = new StringBuilder();
     }
 
     private float sqrt(float d) {
@@ -510,37 +355,4 @@ public class MainActivity extends AppCompatActivity {
 
 
 
-
-    public static class Write implements Runnable {
-        private Activity activity;
-        private Object object;
-        private String fileName;
-        public Write(Activity activity, Object object, String fileName) {
-            this.activity = activity;
-            this.object = object;
-            this.fileName = fileName;
-        }
-        @Override
-        public void run() {
-            if (object != null) {
-                FileOutputStream outputStream = null;
-                try {
-                    outputStream = activity.openFileOutput(fileName, Context.MODE_PRIVATE);
-                    outputStream.write(object.toString().getBytes());
-                } catch (FileNotFoundException e) {
-                    e.printStackTrace();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                } finally {
-                    if (outputStream != null) {
-                        try {
-                            outputStream.close();
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-                    }
-                }
-            }
-        }
-    }
 }
