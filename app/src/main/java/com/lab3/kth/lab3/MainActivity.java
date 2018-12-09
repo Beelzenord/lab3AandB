@@ -13,7 +13,9 @@ import android.widget.TextView;
 
 import java.util.ArrayList;
 
-
+/**
+ *
+ */
 public class MainActivity extends AppCompatActivity {
     private final static int RED_COLOR = 1;
     private final static int BLACK_COLOR = 2;
@@ -55,7 +57,10 @@ public class MainActivity extends AppCompatActivity {
     private float[] mGeomagnetic;
 
 
-
+    /**
+     *
+     * @param savedInstanceState
+     */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -102,6 +107,9 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
+    /**
+     * Sensor events for various sensors
+     */
     private final SensorEventListener sensorEventListener = new SensorEventListener() {
         @Override
         public void onSensorChanged(SensorEvent event) {
@@ -114,14 +122,9 @@ public class MainActivity extends AppCompatActivity {
                     mGeomagnetic[0] = event.values[0];
                     mGeomagnetic[1] = event.values[1];
                     mGeomagnetic[2] = event.values[2];
-                    handleMagneticField(event);
+
                     break;
-                case Sensor.TYPE_GYROSCOPE:
-//                    handleGyroEvent(event);
-                    break;
-                case Sensor.TYPE_LINEAR_ACCELERATION:
-//                    System.out.println(" X : " + event.values[0] + " Y " + event.values[1] + " Z " + event.values[2]);
-            }
+           }
         }
 
         @Override
@@ -129,15 +132,12 @@ public class MainActivity extends AppCompatActivity {
         }
     };
 
-    private void handleMagneticField(SensorEvent event) {
-        float x = event.values[0];
-        float y = event.values[1];
-        float z = event.values[2];
-        prevMagnX = (prevMagnX * acceTiltAlpha + ((1-acceTiltAlpha) * x));
-        prevMagnY = (prevMagnY * acceTiltAlpha + ((1-acceTiltAlpha) * y));
-        prevMagnZ = (prevMagnY * acceTiltAlpha + ((1-acceTiltAlpha) * z));
-    }
 
+    /**
+     * precurser to processing accelerometer data, and displaying the tilt and observing
+     * shake events
+     * @param event
+     */
     private void handleAccelerationEvent(SensorEvent event) {
         float x = event.values[0];
         float y = event.values[1];
@@ -147,6 +147,14 @@ public class MainActivity extends AppCompatActivity {
         handleShakeChange(x, y, z, event.timestamp);
     }
 
+    /**
+     * Handle data to observe if the user is shaking it. We aggregate the data in a list.
+     * When the list is up to 20, we check to see if there is a standard deviation
+     * @param x
+     * @param y
+     * @param z
+     * @param timestamp
+     */
     private void handleShakeChange(float x, float y, float z, long timestamp) {
 
         // filter the accelerometer data
@@ -203,6 +211,13 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * We remove some values of the list so that we can be current with the values
+     * provided by the accelerometer
+     * @param values
+     * @param indexs
+     */
+
     private void removeIndexs(ArrayList<Float> values, int indexs) {
 
         for(int i = 0 ; i < indexs ; i++){
@@ -213,6 +228,9 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * Switch color of the text when we discover a significant standard deviation.
+     */
     private void switchColor() {
         if (currentColor == BLACK_COLOR) {
             degreesView.setTextColor(getResources().getColor(R.color.red, null));
@@ -225,6 +243,13 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
+    /**
+     * We take in raw data and filter out the noise
+     * We calculate the angle and update the text view
+     * @param x
+     * @param y
+     * @param z
+     */
     private void handleTiltChange(float x, float y, float z) {
         x = (prevTiltX * (acceTiltAlpha)) + (x * (1 - acceTiltAlpha));
         y = (prevTiltY * (acceTiltAlpha)) + (y * (1 - acceTiltAlpha));
@@ -270,6 +295,12 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
+    /**
+     * apply a mathematical formula to obtain the standard deviation and if there
+     * is a deviation, then we toggle a flag to change the text color.
+     * @param xValues
+     * @return
+     */
     private boolean findStandardDeviation(ArrayList<Float> xValues) {
           float variance = 0;
           float sum = 0;
@@ -312,6 +343,13 @@ public class MainActivity extends AppCompatActivity {
         return (float)Math.round(Math.toDegrees(res));
     }
 
+    /**
+     * Derive the z-angle for measuring tilt.
+     * @param x
+     * @param y
+     * @param z
+     * @return value in degrees
+     */
     private float zAngleDegrees(float x, float y, float z) {
 
         float u1 = pow(x, 2) + pow(y, 2);
@@ -338,13 +376,6 @@ public class MainActivity extends AppCompatActivity {
         return (float)Math.pow(val, exp);
     }
 
-    private float[] crossProduct(float x1, float y1, float z1, float x2, float y2, float z2) {
-        float[] tmp = new float[3];
-        tmp[0] = (y1*z2 - y2*z1);
-        tmp[1] = (x2*z1 - x1*z2);
-        tmp[2] = (x1*y2 - x2*y1);
-        return tmp;
-    }
 
     private float absolute(float x, float y, float z) {
         return (float)Math.sqrt((Math.pow(x, 2) + Math.pow(y, 2) + Math.pow(z, 2)));
